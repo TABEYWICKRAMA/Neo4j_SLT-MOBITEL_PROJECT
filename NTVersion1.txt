@@ -1,0 +1,178 @@
+//load csv 01 dataset
+
+LOAD CSV WITH HEADERS FROM "file:///book1.csv" AS row
+MERGE (customer:GNDDetails {
+VillageOfficerDomain: row.VillageOfficerDomain, 
+VillageOfficerDomainNo: row.VillageOfficerDomainNo, 
+HouseAddress: row.HouseAddress, 
+nic: row.nic, 
+gender: row.gender, 
+persondistrict: row.persondistrict
+});
+
+
+//load csv 02 dataset
+
+LOAD CSV WITH HEADERS FROM "file:///Book2.csv" AS row
+MERGE (customer:Customer {
+  nnic: row.nnic,
+  gender: row.gender,
+  birth_date: row.birth_date,
+  age: row.age,
+  mobile_no: row.mobile_no,
+  social_id_code: row.social_id_code,
+  social_id_no: row.social_id_no,
+  city: row.city,
+  address_line1: row.address_line1,
+  address_line2: row.address_line2,
+  address_line3: row.address_line3,
+  contact_phone_no: row.contact_phone_no,
+  e_mail: row.e_mail,
+  fax_no: row.fax_no,
+  vat_no: row.vat_no,
+  business_reg_no: row.business_reg_no,
+  surname: row.surname,
+  other_names: row.other_names,
+  honorifics: row.honorifics,
+  mother_maiden_name: row.mother_maiden_name,
+  occupation: row.occupation,
+  date_of_birth: row.date_of_birth,
+  nationality: row.nationality,
+  office_cont_no: row.office_cont_no,
+  company_name: row.company_name,
+  prefered_language: row.prefered_language,
+  churn_prob: row.churn_prob,
+  region: row.region,
+  loyalty: row.loyalty,
+  complaint_cnt: row.complaint_cnt,
+  life_time: row.life_time,
+  total_voice_usage_min: row.total_voice_usage_min,
+  total_data_usage_mb: row.total_data_usage_mb,
+  disconnected_at: row.disconnected_at,
+  disconnected_by: row.disconnected_by,
+  inactivated_on: row.inactivated_on,
+  inactivated_by: row.inactivated_by,
+  tot_cred_adj: row.tot_cred_adj,
+  tot_deb_adj: row.tot_deb_adj,
+  promo_code: row.promo_code,
+  debit_led_acc_code: row.debit_led_acc_code,
+  debit_led_code: row.debit_led_code,
+  sales_account_type: row.sales_account_type,
+  account_category: row.account_category,
+  act_con_cnt: row.act_con_cnt,
+  days_since_cdr: row.days_since_cdr,
+  cred_score: row.cred_score,
+  last_week_vlr: row.last_week_vlr,
+  connection_type: row.connection_type
+})
+MERGE (sim:Sim {
+  mobile_no: row.mobile_no,
+  subscriber_code: row.subscriber_code,
+  sim_no: row.sim_no,
+  network_category: row.network_category,
+  connected_date: row.connected_date,
+  connected_time: row.connected_time,
+  dealer_code: row.dealer_code,
+  sales_code: row.sales_code,
+  disconnected_on: row.disconnected_on,
+  status_total: row.status_total,
+  subdealer_code: row.subdealer_code
+})
+MERGE (package:Package {
+  service_pak_code: row.service_pak_code,
+  subscriber_code: row.subscriber_code,
+  package_type: row.package_type,
+  added_on: row.added_on,
+  added_at: row.added_at,
+  added_by: row.added_by,
+  subscribed_date: row.subscribed_date,
+  un_subscribed_date: row.un_subscribed_date,
+  modified_status: row.modified_status,
+  version_name: row.version_name
+})
+MERGE (device:Device {
+  imei: row.imei,
+  tac: row.tac,
+  brand: row.brand,
+  model: row.model,
+  marketing_name: row.marketing_name,
+  year_released: row.year_released,
+  software_os_name: row.software_os_name,
+  device_type: row.device_type,
+  primary_hardware_type: row.primary_hardware_type,
+  hspa_plus: row.hspa_plus,
+  lte: row.lte,
+  lte_advanced: row.lte_advanced
+})
+MERGE (bill:Bill {
+  last_bill_date: row.last_bill_date,
+  last_bill_amount: row.last_bill_amount,
+  bill_avg: row.bill_avg,
+  tot_bill_val: row.tot_bill_val,
+  payment_avg: row.payment_avg,
+  tot_payment_val: row.tot_payment_val,
+  last_payment_date: row.last_payment_date,
+  last_payment_amount: row.last_payment_amount,
+  bill_district_code: row.bill_district_code,
+  bill_run_code: row.bill_run_code,
+  last_billed_date: row.last_billed_date,
+  avg_bill_3m: row.avg_bill_3m,
+  outstanding_val: row.outstanding_val
+})
+MERGE (tower:Tower {
+  siteid: row.siteid,
+  sitename: row.sitename,
+  dsd: row.dsd,
+  district: row.district
+})
+
+//create relationships
+
+MERGE (customer)-[:Buy]->(sim)
+MERGE (sim)-[:HAS]->(package)
+MERGE (customer)-[:Subscribe]->(package)
+MERGE (customer)-[:Use]->(device)  
+MERGE (customer)-[:Pay]->(bill)
+MERGE (sim)-[:Indicate]->(tower)
+
+//------------------------------------------------------------------------------------------------------------------------------
+
+//display users who give different districts for their mobitel billing address and GND address
+
+LOAD CSV WITH HEADERS FROM 'file:///book1.csv' AS row
+CREATE (:GNDNode {nic: row.nic, persondistrict: row.persondistrict});
+
+LOAD CSV WITH HEADERS FROM 'file:///Book2.csv' AS row
+CREATE (:MobitelUserNode {nnic: row.nnic, district: row.district});
+
+MATCH (n1:GNDNode), (n2:MobitelUserNode)
+WHERE n1.nic = n2.nnic AND n1.persondistrict <> n2.district
+CREATE (n1)-[:RELATIONSHIP]->(n2);
+
+//------------------------------------------------------------------------------------------------------------------------------
+
+//display how many sims are registered into one phone using EMEI number
+
+LOAD CSV WITH HEADERS from 'file:///newly_given_dataset.csv' as row with row where row.nnic is not null                   
+MERGE (s:deviceIMEI{imei: row.imei})            
+MERGE (p:CustomerMob{mobile_no: row.mobile_no})  
+MERGE (s) - [:With {nnic:row.nnic,surname:row.surname}]->(p)
+
+//------------------------------------------------------------------------------------------------------------------------------
+
+//Display most two expensive bill amount + churn_prob is greater than 0.75 + display their phone number + billing address + GND //address 
+//purpose of this is churn probability is closer to 1 then he may think to leave the company,for that we can give some discount //to clear their bill amoount and we can take care of our customers.
+
+LOAD CSV WITH HEADERS FROM 'file:///book1.csv' AS row
+CREATE (:HouseAddGND {nic: row.nic, HouseAddress: row.HouseAddress, VillageOfficerDomainNo: row.VillageOfficerDomainNo, VillageOfficerDomain: row.VillageOfficerDomain, persondistrict: row.persondistrict});
+
+LOAD CSV WITH HEADERS FROM 'file:///Book2.csv' AS row
+CREATE (:DiscBill {nnic: row.nnic, address_line1: row.address_line1, address_line2: row.address_line2, address_line3: row.address_line3, city: row.city, churn_prob: row.churn_prob, tot_bill_val: row.tot_bill_val, mobile_no: row.mobile_no});
+
+
+
+MATCH (m1:HouseAddGND), (m2:DiscBill)
+where m1.nic = m2.nnic and m2.churn_prob > "0.75"
+RETURN m1.nic, m1.HouseAddress, m1.VillageOfficerDomainNo, m1.VillageOfficerDomain, m1.persondistrict, m2.address_line1, m2.address_line2, m2.address_line3, m2.city, m2.churn_prob, m2.tot_bill_val, m2.mobile_no
+ORDER BY m2.tot_bill_val desc
+limit 2;
